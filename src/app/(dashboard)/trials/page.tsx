@@ -22,7 +22,7 @@ export default function HomePage() {
             if (error) {
                 console.error('Error:', error);
             } else {
-                setData(prev => [...prev, ...data]);
+                setData(data);
             }
 
         };
