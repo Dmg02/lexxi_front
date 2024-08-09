@@ -22,7 +22,7 @@ const GREY = {
     200: '#F4F6F8',
     300: '#DFE3E8',
     400: '#C4CDD5',
-    500: '#919EAB',
+    500: '#1f1f1f',
     600: '#637381',
     700: '#454F5B',
     800: '#212B36',
@@ -131,7 +131,7 @@ export const darkPalette = {
     ...COMMON,
     mode: 'dark',
     text: {
-        primary: '#e6e6e6',
+        primary: '#121212',
         secondary: GREY[500],
         disabled: GREY[600],
     },

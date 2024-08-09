@@ -20,7 +20,7 @@ export function responsiveFontSizes({ sm, md, lg }: { sm: number; md: number; lg
     }
 }
 
-const FONT_PRIMARY = 'Public Sans, sans-serif' // Google Font
+const FONT_PRIMARY = 'Helvetica, neue' // Google Font
 
 const typography = {
     fontFamily: FONT_PRIMARY,

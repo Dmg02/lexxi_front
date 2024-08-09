@@ -17,7 +17,7 @@
 }
 
 [data-mui-color-scheme='dark'] {
-  --backdrop-color: rgb(21 16 43 / 0.6);
+  --backdrop-color: rgb(17 17 17 / 0.6);
 }
 
 *,

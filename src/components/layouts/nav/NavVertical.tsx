@@ -56,6 +56,7 @@ export function NavVertical({ openNav, onCloseNav }: Props) {
                         items: [
                             { title: 'Trials', path: '/trials' },
                             { title: 'My trials', path: '/my_trials' },
+                            {title: 'User settings', path: '/user_settings'}
                         ],
                     }]} />
                     <Box sx={{ flexGrow: 1 }} />

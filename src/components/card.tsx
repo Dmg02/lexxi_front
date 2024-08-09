@@ -10,6 +10,7 @@ export const CardTrial = ({ record: r, setOpenDetail }: { record: any; setOpenDe
                 <Typography>{'Actor: ' + r.plaintiff}</Typography>
                 <Typography>{'Demandado: ' + r.defendant}</Typography>
                 <Button fullWidth sx={{ mt: 2 }} variant={'contained'} onClick={() => setOpenDetail(r)}>{'Más detalles'}</Button>
+                <Button fullWidth sx={{ mt: 2 }} variant={'outlined'} onClick={() => setOpenDetail(r)}>{'Suscribirme'}</Button>
             </CardContent>
         </Card>
     )

@@ -4,18 +4,21 @@ import Box from '@mui/material/Box'
 import { Drawer, IconButton, Stack, TextField, Typography } from '@mui/material'
 import { createSupabaseClientSide } from '@/lib/supabase/supabase-client-side';
 import { CardTrial } from '@/components/card';
+//import { useUser } from '@/lib/auth/useUser';
 
 export default function HomePage() {
     const [search, setSearch] = useState('');
     const [data, setData] = useState<any[]>([]);
     const [openDetails, setOpenDetails] = useState<any>(null);
+    //const { user } = useUser(); // Get the current user
+
 
     useEffect(() => {
         const fetch = async () => {
 
             const supabase = createSupabaseClientSide();
             const { data, error } = await supabase
-                .from("shared_trials")
+                .from("orgtrials")
                 .select("*")
                 .eq('case_number', search)
 
@@ -29,6 +32,45 @@ export default function HomePage() {
 
         fetch();
     }, [search])
+
+
+    useEffect(() => {
+        const fetchUserTrials = async () => {
+            if (!user) return;
+
+            const supabase = createSupabaseClientSide();
+            
+            // First, get the user's team
+            const { data: teamData, error: teamError } = await supabase
+                .from("team_members")
+                .select("team_id")
+                .eq('user_id', user.id)
+                .single();
+
+            if (teamError) {
+                console.error('Error fetching team:', teamError);
+                return;
+            }
+
+            // Then, get the trials for the user's team
+            const { data: trialsData, error: trialsError } = await supabase
+                .from("orgtrials")
+                .select(`
+                    *,
+                    trials:trial_id (*)
+                `)
+                .eq('team_id', teamData.team_id)
+                .ilike('trials.case_number', `%${search}%`);
+
+            if (trialsError) {
+                console.error('Error fetching trials:', trialsError);
+            } else {
+                setData(trialsData.map(ot => ot.trials));
+            }
+        };
+
+        fetchUserTrials();
+    }, [user, search]);
 
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
