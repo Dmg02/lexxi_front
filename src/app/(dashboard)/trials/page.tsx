@@ -1,10 +1,11 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Box from '@mui/material/Box'
-import { Drawer, IconButton, Stack, TextField, Typography, Autocomplete } from '@mui/material'
+import { Drawer, IconButton, Stack, TextField, Typography, Autocomplete, useMediaQuery, Theme } from '@mui/material'
+import CloseIcon from '@mui/icons-material/Close';
 import { createSupabaseClientSide } from '@/lib/supabase/supabase-client-side';
 import { CardTrial } from '@/components/card';
-import { format } from 'date-fns'; // Import this for date formatting
+import { format } from 'date-fns'; 
 
 export default function HomePage() {
     const [search, setSearch] = useState('');
@@ -15,6 +16,8 @@ export default function HomePage() {
     const [states, setStates] = useState<any[]>([]);
     const [selectedState, setSelectedState] = useState<any>(null);
     const [publications, setPublications] = useState<any[]>([]);
+    const isMobile = useMediaQuery((theme: Theme) => theme.breakpoints.down('sm'));
+
 
     useEffect(() => {
         const fetchStates = async () => {
@@ -102,10 +105,18 @@ export default function HomePage() {
         }
     };
     return (
-        
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'}}>
-            <Typography variant="h3">{'Juicios'}</Typography>
-<Box sx={{ my: 2, width: 700 }}>
+        <Box sx={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            p: 2,
+            width: '100%',
+            maxWidth: '100vw',
+            boxSizing: 'border-box'
+        }}>
+            <Typography variant={isMobile ? "h4" : "h3"} sx={{ mb: 2, textAlign: 'center' }}>{'Juicios'}</Typography>
+            <Box sx={{ width: '100%', maxWidth: 700 }}>
                 <Autocomplete
                     options={states}
                     getOptionLabel={(option) => option.name || ''}
@@ -138,6 +149,7 @@ export default function HomePage() {
                     disabled={!selectedCourthouse}
                 />
             </Box>
+            
             <Stack spacing={0.5} direction={'column'}>
                 {data.map((r: any) => (
                     <CardTrial 
@@ -149,7 +161,7 @@ export default function HomePage() {
             </Stack>
             {openDetails && (
                 <Drawer
-                    anchor={'right'}
+                    anchor={isMobile ? 'bottom' : 'right'}
                     open={!!openDetails}
                     onClose={() => {
                         setOpenDetails(null);
@@ -158,36 +170,54 @@ export default function HomePage() {
                     PaperProps={{
                         sx: {
                             zIndex: 0,
-                            width: 500,
+                            width: isMobile ? '100%' : 500,
+                            height: isMobile ? '90%' : '100%',
                             bgcolor: '#f7f7f5',
                             borderRight: 'solid 1px #D6DBE0',
-                            p:6
+                            p: 3,
+                            boxSizing: 'border-box',
+                            overflowY: 'auto'
                         },
                     }}
-                    SlideProps={{ direction: 'right' }}
+                    SlideProps={{ direction: isMobile ? 'up' : 'right' }}
                 >
-                        <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>Detalles del Juicio</Typography>
-                        <Box sx={{ mb: 3 }}>
-                            <Typography sx={{ mb: 1 }}><strong>No. Expediente:</strong> {openDetails.case_number}</Typography>
-                            <Typography sx={{ mb: 1 }}><strong>Actor:</strong> {openDetails.plaintiff}</Typography>
-                            <Typography sx={{ mb: 1 }}><strong>Demandado:</strong> {openDetails.defendant}</Typography>
-                        </Box>
+                    <Box sx={{ position: 'relative', mb: 3 }}>
+                        <Typography variant="h5" gutterBottom>Detalles del Juicio</Typography>
+                        <IconButton 
+                            onClick={() => {
+                                setOpenDetails(null);
+                                setPublications([]);
+                            }}
+                            sx={{ 
+                                position: 'absolute',
+                                right: -8,
+                                top: -8,
+                            }}
+                        >
+                            <CloseIcon />
+                        </IconButton>
+                    </Box>
+                    <Box sx={{ mb: 3 }}>
+                        <Typography sx={{ mb: 1 }}><strong>No. Expediente:</strong> {openDetails.case_number}</Typography>
+                        <Typography sx={{ mb: 1 }}><strong>Actor:</strong> {openDetails.plaintiff}</Typography>
+                        <Typography sx={{ mb: 1 }}><strong>Demandado:</strong> {openDetails.defendant}</Typography>
+                    </Box>
 
-                        <Typography variant="h6" sx={{ mt: 4, mb: 3 }}>Publicaciones Recientes</Typography>
-                        {publications.length > 0 ? (
-                            publications.map((pub) => (
-                                <Box key={pub.id} sx={{ mb: 3, p: 2, border: '1px solid #e0e0e0', borderRadius: 2 }}>
-                                    <Typography sx={{ mb: 1 }}><strong>Fecha de Publicación:</strong> {format(new Date(pub.publication_date), 'dd/MM/yyyy')}</Typography>
-                                    <Typography sx={{ mb: 1 }}><strong>Fecha de Acuerdo:</strong> {format(new Date(pub.agreement_date), 'dd/MM/yyyy')}</Typography>
-                                    <Typography sx={{ mb: 1 }}><strong>Síntesis:</strong> {pub.summary}</Typography>
-                                    <Typography sx={{ mb: 1 }}><strong>Status:</strong> {pub.status}</Typography>
-                                </Box>
-                            ))
-                        ) : (
-                            <Typography>No hay publicaciones recientes para este juicio.</Typography>
-                        )}
-                    </Drawer>
-                )}
-            </Box>
+                    <Typography variant="h6" sx={{ mt: 4, mb: 3 }}>Publicaciones Recientes</Typography>
+                    {publications.length > 0 ? (
+                        publications.map((pub) => (
+                            <Box key={pub.id} sx={{ mb: 3, p: 2, border: '1px solid #e0e0e0', borderRadius: 2 }}>
+                                <Typography sx={{ mb: 1 }}><strong>Fecha de Publicación:</strong> {format(new Date(pub.publication_date), 'dd/MM/yyyy')}</Typography>
+                                <Typography sx={{ mb: 1 }}><strong>Fecha de Acuerdo:</strong> {format(new Date(pub.agreement_date), 'dd/MM/yyyy')}</Typography>
+                                <Typography sx={{ mb: 1 }}><strong>Síntesis:</strong> {pub.summary}</Typography>
+                                <Typography sx={{ mb: 1 }}><strong>Status:</strong> {pub.status}</Typography>
+                            </Box>
+                        ))
+                    ) : (
+                        <Typography>No hay publicaciones recientes para este juicio.</Typography>
+                    )}
+                </Drawer>
+            )}
+        </Box>
     )
 }

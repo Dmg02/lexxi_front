@@ -79,7 +79,7 @@ export default function HomePage() {
                 <TextField label={'Search'} value={search} onChange={(e: any) => setSearch(e.target.value)} />
             </Box>
             <Stack spacing={0.5} direction={'column'}>
-                {data.map((r: any) => <CardTrial record={r} setOpenDetail={setOpenDetails} />)}
+                {data.map((r: any) => <CardTrial record={r} setOpenDetail={setOpenDetails} onClose={() => setOpenDetails(null)} />)}
             </Stack>
             {openDetails && (
                 <Drawer
