@@ -82,7 +82,7 @@ const TextSection = () => {
     return (
         <SectionStyle>
             <Typography sx={sx.typographySX}>
-                <Box sx={{width: '300px', height: '76px'}} component='img' src={'sticker.webp'} />
+                <Box sx={{width: '400px', height: '100px'}} component='img' src={'Lexxi.svg'} />
                 <br />
                 Run {' '}
                 <Box component='span' sx={{ color: theme.palette.background.default, backgroundColor: theme.palette.text.primary, borderRadius: '10px', px: 2 }}>

@@ -48,14 +48,14 @@ export function NavVertical({ openNav, onCloseNav }: Props) {
                 <Scrollbar sx={{ height: 1, '& .simplebar-content': { height: 1, display: 'flex', flexDirection: 'column' } }}>
                     <Stack spacing={3} sx={{ pt: 3, pb: 2, px: 2.5, flexShrink: 0 }}>
                         <Box>
-                            <img src={darkMode ? '/sticker.webp' : '/sticker.webp'} onClick={() => router.push('/')} style={{ cursor: 'pointer' }} />
+                            <img src={darkMode ? '/Lexxi.svg' : '/Lexxi.svg'} onClick={() => router.push('/')} style={{ cursor: 'pointer' }} />
                         </Box>
                     </Stack>
                     <NavSection data={[{
                         subheader: 'General',
                         items: [
                             { title: 'Trials', path: '/trials' },
-                            { title: 'My trials', path: '/my_trials' },
+                            { title: 'Mis Asuntos', path: '/mis_asuntos' },
                             {title: 'User settings', path: '/user_settings'}
                         ],
                     }]} />

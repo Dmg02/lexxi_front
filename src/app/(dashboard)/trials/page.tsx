@@ -1,8 +1,9 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Box from '@mui/material/Box'
-import { Drawer, IconButton, Stack, TextField, Typography, Autocomplete, useMediaQuery, Theme } from '@mui/material'
+import { Drawer, IconButton, Stack, TextField, Typography, Autocomplete, useMediaQuery, Theme, Grid, Pagination } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { createSupabaseClientSide } from '@/lib/supabase/supabase-client-side';
 import { CardTrial } from '@/components/card';
 import { format } from 'date-fns'; 
@@ -16,6 +17,9 @@ export default function HomePage() {
     const [states, setStates] = useState<any[]>([]);
     const [selectedState, setSelectedState] = useState<any>(null);
     const [publications, setPublications] = useState<any[]>([]);
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const itemsPerPage = 10;
     const isMobile = useMediaQuery((theme: Theme) => theme.breakpoints.down('sm'));
 
 
@@ -66,25 +70,32 @@ export default function HomePage() {
         const fetchTrials = async () => {
             if (!selectedCourthouse || !search) {
                 setData([]);
+                setTotalPages(1);
                 return;
             }
 
             const supabase = createSupabaseClientSide();
-            const { data, error } = await supabase
+            const { data, count, error } = await supabase
                 .from("shared_trials")
-                .select("*")
+                .select("*", { count: 'exact' })
                 .eq('courthouse_id', selectedCourthouse.id)
                 .ilike('case_number', `%${search}%`)
+                .range((page - 1) * itemsPerPage, page * itemsPerPage - 1);
 
             if (error) {
                 console.error('Error:', error);
             } else {
-                setData(data);
+                setData(data || []);
+                setTotalPages(Math.ceil((count || 0) / itemsPerPage));
             }
         };
 
         fetchTrials();
-    }, [selectedCourthouse, search])
+    }, [selectedCourthouse, search, page])
+
+    const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
+        setPage(value);
+    };
 
     const handleOpenDetails = async (trial: any) => {
         setOpenDetails(trial);
@@ -104,6 +115,12 @@ export default function HomePage() {
             setPublications(data || []);
         }
     };
+
+    const handleClosePublication = (pubId: string) => {
+        // Implement the logic to close/delete the publication
+        setPublications(publications.filter(pub => pub.id !== pubId));
+    };
+
     return (
         <Box sx={{ 
             display: 'flex', 
@@ -115,7 +132,7 @@ export default function HomePage() {
             maxWidth: '100vw',
             boxSizing: 'border-box'
         }}>
-            <Typography variant={isMobile ? "h4" : "h3"} sx={{ mb: 2, textAlign: 'center' }}>{'Juicios'}</Typography>
+            <Typography variant={isMobile ? "h4" : "h3"} sx={{ mb: 2, textAlign: 'center' }}>{'Busca un Asunto'}</Typography>
             <Box sx={{ width: '100%', maxWidth: 700 }}>
                 <Autocomplete
                     options={states}
@@ -150,15 +167,25 @@ export default function HomePage() {
                 />
             </Box>
             
-            <Stack spacing={0.5} direction={'column'}>
+            <Grid container spacing={2} sx={{ mt: 2, mb: 2 }}>
                 {data.map((r: any) => (
-                    <CardTrial 
-                        key={r.id} 
-                        record={r} 
-                        setOpenDetail={() => handleOpenDetails(r)} 
-                    />
+                    <Grid item xs={12} sm={6} md={4} lg={3} key={r.id}>
+                        <CardTrial 
+                            record={r} 
+                            setOpenDetail={() => handleOpenDetails(r)} 
+                        />
+                    </Grid>
                 ))}
-            </Stack>
+            </Grid>
+
+            <Pagination 
+                count={totalPages} 
+                page={page} 
+                onChange={handlePageChange} 
+                color="primary" 
+                sx={{ mt: 2, mb: 2 }}
+            />
+
             {openDetails && (
                 <Drawer
                     anchor={isMobile ? 'bottom' : 'right'}
@@ -206,7 +233,17 @@ export default function HomePage() {
                     <Typography variant="h6" sx={{ mt: 4, mb: 3 }}>Publicaciones Recientes</Typography>
                     {publications.length > 0 ? (
                         publications.map((pub) => (
-                            <Box key={pub.id} sx={{ mb: 3, p: 2, border: '1px solid #e0e0e0', borderRadius: 2 }}>
+                            <Box key={pub.id} sx={{ mb: 3, p: 2, border: '1px solid #e0e0e0', borderRadius: 2, position: 'relative' }}>
+                                <IconButton
+                                    onClick={() => handleClosePublication(pub.id)}
+                                    sx={{
+                                        position: 'absolute',
+                                        right: 8,
+                                        top: 8,
+                                    }}
+                                    size="small"
+                                >
+                                </IconButton>
                                 <Typography sx={{ mb: 1 }}><strong>Fecha de Publicación:</strong> {format(new Date(pub.publication_date), 'dd/MM/yyyy')}</Typography>
                                 <Typography sx={{ mb: 1 }}><strong>Fecha de Acuerdo:</strong> {format(new Date(pub.agreement_date), 'dd/MM/yyyy')}</Typography>
                                 <Typography sx={{ mb: 1 }}><strong>Síntesis:</strong> {pub.summary}</Typography>

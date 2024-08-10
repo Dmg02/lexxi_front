@@ -33,7 +33,7 @@ const PRIMARY = {
     lighter: '#CCF4FE',
     light: '#68CDF9',
     main: '#078DEE',
-    dark: '#0351AB',
+    dark: '#171717',
     darker: '#012972',
     contrastText: '#FFFFFF',
 };
@@ -131,13 +131,13 @@ export const darkPalette = {
     ...COMMON,
     mode: 'dark',
     text: {
-        primary: '#121212',
+        primary: '#FFFFFF',
         secondary: GREY[500],
         disabled: GREY[600],
     },
     background: {
-        paper: GREY[800],
-        default: GREY[900],
+        paper: PRIMARY.dark,
+        default: PRIMARY.dark,
         neutral: alpha(GREY[500], 0.16),
     },
     action: {
