@@ -1,12 +1,13 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Box from '@mui/material/Box'
-import { Drawer, IconButton, Stack, TextField, Typography, Autocomplete, useMediaQuery, Theme, Grid, Pagination } from '@mui/material'
+import { Drawer, IconButton, Stack, TextField, Typography, Autocomplete, useMediaQuery, Theme, Grid, Pagination, Button } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { createSupabaseClientSide } from '@/lib/supabase/supabase-client-side';
 import { CardTrial } from '@/components/card';
 import { format } from 'date-fns'; 
+import { useAuth } from '@/context/useAuth';
 
 export default function HomePage() {
     const [search, setSearch] = useState('');
@@ -21,7 +22,8 @@ export default function HomePage() {
     const [totalPages, setTotalPages] = useState(1);
     const itemsPerPage = 10;
     const isMobile = useMediaQuery((theme: Theme) => theme.breakpoints.down('sm'));
-
+    const [subscriptionStatus, setSubscriptionStatus] = useState<'subscribed' | 'not_subscribed' | 'loading'>('not_subscribed');
+    const { user } = useAuth(); // This hook provides the current user's information
 
     useEffect(() => {
         const fetchStates = async () => {
@@ -116,9 +118,71 @@ export default function HomePage() {
         }
     };
 
-    const handleClosePublication = (pubId: string) => {
-        // Implement the logic to close/delete the publication
-        setPublications(publications.filter(pub => pub.id !== pubId));
+    const handleSubscribe = async (trial: any) => {
+        if (!user) {
+            console.error('User not logged in');
+            return;
+        }
+    
+        setSubscriptionStatus('loading');
+        const supabase = createSupabaseClientSide();
+    
+        try {
+            // Step 1: Get the profile id
+            const { data: profile, error: profileError } = await supabase
+                .from('profiles')
+                .select('id')
+                .eq('user_id', user.id)
+                .single();
+    
+            if (profileError) throw profileError;
+    
+            // Step 2: Get the team member id and team info (including organization_id)
+            const { data: teamMember, error: teamMemberError } = await supabase
+                .from('team_members')
+                .select('id, team_id, teams(organization_id)')
+                .eq('profile_id', profile.id)
+                .single();
+    
+            if (teamMemberError) throw teamMemberError;
+    
+            const organizationId = teamMember.teams.organization_id;
+    
+            // Step 3: Check if the subscription already exists
+            const { data: existingSubscription, error: subscriptionError } = await supabase
+                .from('org_trials')
+                .select('*')
+                .eq('team_id', teamMember.team_id)
+                .eq('shared_trial_id', trial.id)
+                .single();
+    
+            if (subscriptionError && subscriptionError.code !== 'PGRST116') {
+                throw subscriptionError;
+            }
+    
+            if (existingSubscription) {
+                setSubscriptionStatus('subscribed');
+                return;
+            }
+    
+            // Step 4: Create new subscription
+            const { error: insertError } = await supabase
+                .from('org_trials')
+                .insert({
+                    team_id: teamMember.team_id,
+                    shared_trial_id: trial.id,
+                    created_by: user.id,  // Changed from profile.id to user.id
+                    organization_id: organizationId
+                });
+    
+            if (insertError) throw insertError;
+    
+            setSubscriptionStatus('subscribed');
+            console.log('Successfully subscribed to the trial');
+        } catch (error) {
+            console.error('Error in subscription process:', error);
+            setSubscriptionStatus('not_subscribed');
+        }
     };
 
     return (
@@ -253,6 +317,15 @@ export default function HomePage() {
                     ) : (
                         <Typography>No hay publicaciones recientes para este juicio.</Typography>
                     )}
+                    <Button
+                        variant="contained"
+                        color="primary"
+                        onClick={() => handleSubscribe(openDetails)}
+                        disabled={subscriptionStatus === 'loading' || subscriptionStatus === 'subscribed'}
+                        sx={{ mt: 2 }}
+                    >   
+                        {subscriptionStatus === 'subscribed' ? 'Suscrito' : 'Suscribirme'}
+                    </Button>
                 </Drawer>
             )}
         </Box>

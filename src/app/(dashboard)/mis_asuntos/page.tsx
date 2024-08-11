@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Box, Typography, ToggleButton, ToggleButtonGroup, Card, CardContent, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper } from '@mui/material'
+import { Box, Typography, ToggleButton, ToggleButtonGroup, Card, CardContent, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, TextField, Button } from '@mui/material'
 import { createSupabaseClientSide } from '@/lib/supabase/supabase-client-side'
 import ViewModuleIcon from '@mui/icons-material/ViewModule'
 import ViewListIcon from '@mui/icons-material/ViewList'
@@ -25,6 +25,8 @@ export default function MisAsuntosPage() {
   const [trials, setTrials] = useState<Trial[]>([])
   const [view, setView] = useState<'card' | 'table'>('card')
   const [loading, setLoading] = useState(true)
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editValue, setEditValue] = useState('')
 
   useEffect(() => {
     fetchTrials()
@@ -116,6 +118,33 @@ export default function MisAsuntosPage() {
       setLoading(false)
     }
   }
+  
+  const handleSave = async (id: number) => {
+    setLoading(true)
+    const supabase = createSupabaseClientSide()
+    
+    const { data, error } = await supabase
+      .from('org_trials')
+      .update({ risk_factor: editValue })
+      .eq('id', id)
+
+    if (error) {
+      console.error('Error updating trial:', error)
+    } else {
+      setTrials(trials.map(trial => 
+        trial.id === id ? { ...trial, risk_factor: editValue } : trial
+      ))
+    }
+
+    setEditingId(null)
+    setEditValue('')
+    setLoading(false)
+  }
+
+  const handleEdit = (id: number, currentValue: string) => {
+    setEditingId(id)
+    setEditValue(currentValue)
+  }
 
   const handleViewChange = (event: React.MouseEvent<HTMLElement>, newView: 'card' | 'table') => {
     if (newView !== null) {
@@ -153,7 +182,21 @@ export default function MisAsuntosPage() {
                 <Typography variant="h6">{trial.case_number}</Typography>
                 <Typography>Status: {trial.trial_status}</Typography>
                 <Typography>Priority: {trial.priority}</Typography>
-                <Typography>Risk Factor: {trial.risk_factor}</Typography>
+                {editingId === trial.id ? (
+                  <>
+                    <TextField
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      label="Risk Factor"
+                    />
+                    <Button onClick={() => handleSave(trial.id)}>Save</Button>
+                  </>
+                ) : (
+                  <>
+                    <Typography>Risk Factor: {trial.risk_factor}</Typography>
+                    <Button onClick={() => handleEdit(trial.id, trial.risk_factor)}>Edit</Button>
+                  </>
+                )}
                 <Typography>Corporation: {trial.org_corporation}</Typography>
               </CardContent>
             </Card>
@@ -169,6 +212,7 @@ export default function MisAsuntosPage() {
                 <TableCell>Status</TableCell>
                 <TableCell>Priority</TableCell>
                 <TableCell>Risk Factor</TableCell>
+                <TableCell>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -178,7 +222,23 @@ export default function MisAsuntosPage() {
                   <TableCell>{trial.org_corporation}</TableCell>
                   <TableCell>{trial.trial_status}</TableCell>
                   <TableCell>{trial.priority}</TableCell>
-                  <TableCell>{trial.risk_factor}</TableCell>
+                  <TableCell>
+                    {editingId === trial.id ? (
+                      <TextField
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                      />
+                    ) : (
+                      trial.risk_factor
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {editingId === trial.id ? (
+                      <Button onClick={() => handleSave(trial.id)}>Save</Button>
+                    ) : (
+                      <Button onClick={() => handleEdit(trial.id, trial.risk_factor)}>Edit</Button>
+                    )}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

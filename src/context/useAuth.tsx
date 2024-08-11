@@ -1,22 +1,29 @@
 import { createSupabaseClientSide } from '@/lib/supabase/supabase-client-side';
 import { useRouter } from 'next/navigation';
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { User } from '@supabase/supabase-js';
 
-const AuthContext = createContext<any>(null);
+const AuthContext = createContext<{
+    user: User | null;
+    login: (values: TValue) => Promise<void>;
+    logout: () => Promise<void>;
+    isAuthChecked: boolean;
+}>(null);
 
 export const useAuth = () => useContext(AuthContext);
 
 type TValue = any
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-    const [user, setUser] = useState(null);
+    const [user, setUser] = useState<User | null>(null);
     const [isAuthChecked, setAuthChecked] = useState(false);
     const router = useRouter();
 
     const login = async (values: TValue) => {
-        const { error, data } = await createSupabaseClientSide().auth.signInWithPassword({ email: values.email, password: values.password });
+        const rs = await createSupabaseClientSide().auth.signInWithPassword({ email: values.email, password: values.password });
+        const { error, data } = rs;
 
-        if (!error) {
+        if (error) {
             console.log(error);
             return;
         };
