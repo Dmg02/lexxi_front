@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Box, Typography, ToggleButton, ToggleButtonGroup, Card, CardContent, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, TextField, Button } from '@mui/material'
+import { Box, Typography, ToggleButton, ToggleButtonGroup, Card, CardContent, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, TextField, Button, MenuItem } from '@mui/material'
 import { createSupabaseClientSide } from '@/lib/supabase/supabase-client-side'
 import ViewModuleIcon from '@mui/icons-material/ViewModule'
 import ViewListIcon from '@mui/icons-material/ViewList'
@@ -19,6 +19,9 @@ interface Trial {
   notes: string;
   trial_status: string;
   trial_type_stage: string;
+  courthouse: string;
+  courthouse_id: number;
+  courthouse_name: string;
 }
 
 export default function MisAsuntosPage() {
@@ -27,6 +30,8 @@ export default function MisAsuntosPage() {
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editValue, setEditValue] = useState('')
+  const [selectedCourthouse, setSelectedCourthouse] = useState<string>('all')
+  const [courthouses, setCourthouses] = useState<string[]>([])
 
   useEffect(() => {
     fetchTrials()
@@ -91,30 +96,40 @@ export default function MisAsuntosPage() {
       return
     }
   
-    // Finally, get the trials for the user's team
+    // Fetch trials with courthouse information
     const { data: orgTrialsData, error: orgTrialsError } = await supabase
       .from("org_trials")
       .select(`
         *,
         shared_trials:shared_trial_id (
-          case_number
+          case_number,
+          courthouse_id (
+            id,
+            name
+          )
         )
       `)
       .eq('team_id', teamData.team_id)
-  
+
     if (orgTrialsError) {
       console.error('Error fetching trials:', orgTrialsError)
       setLoading(false)
     } else {
       console.log('Trials data:', orgTrialsData)
       
-      // Combine org_trials data with shared_trials data
       const combinedTrials = orgTrialsData.map(trial => ({
         ...trial,
         case_number: trial.shared_trials.case_number,
+        courthouse_id: trial.shared_trials.courthouse_id.id,
+        courthouse_name: trial.shared_trials.courthouse_id.name || 'Unknown Courthouse'
       }))
       
       setTrials(combinedTrials)
+      
+      // Extract unique courthouses
+      const uniqueCourthouses = Array.from(new Set(combinedTrials.map(trial => trial.courthouse_name)));
+      setCourthouses(['all', ...uniqueCourthouses]);
+      
       setLoading(false)
     }
   }
@@ -152,31 +167,53 @@ export default function MisAsuntosPage() {
     }
   }
 
+  const handleCourthouseChange = (event: React.ChangeEvent<{ value: unknown }>) => {
+    setSelectedCourthouse(event.target.value as string);
+  };
+
+  const filteredTrials = selectedCourthouse === 'all'
+    ? trials
+    : trials.filter(trial => trial.courthouse_name === selectedCourthouse);
+
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" gutterBottom>Mis Asuntos</Typography>
-      <ToggleButtonGroup
-        value={view}
-        exclusive
-        onChange={handleViewChange}
-        aria-label="view mode"
-        sx={{ mb: 2 }}
-      >
-        <ToggleButton value="card" aria-label="card view">
-          <ViewModuleIcon />
-        </ToggleButton>
-        <ToggleButton value="table" aria-label="table view">
-          <ViewListIcon />
-        </ToggleButton>
-      </ToggleButtonGroup>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <ToggleButtonGroup
+          value={view}
+          exclusive
+          onChange={handleViewChange}
+          aria-label="view mode"
+        >
+          <ToggleButton value="card" aria-label="card view">
+            <ViewModuleIcon />
+          </ToggleButton>
+          <ToggleButton value="table" aria-label="table view">
+            <ViewListIcon />
+          </ToggleButton>
+        </ToggleButtonGroup>
+        <TextField
+          select
+          label="Courthouse"
+          value={selectedCourthouse}
+          onChange={handleCourthouseChange}
+          sx={{ minWidth: 200 }}
+        >
+          {courthouses.map((courthouse) => (
+            <MenuItem key={courthouse} value={courthouse}>
+              {courthouse === 'all' ? 'All Courthouses' : courthouse}
+            </MenuItem>
+          ))}
+        </TextField>
+      </Box>
       
       {loading ? (
         <Typography>Loading...</Typography>
-      ) : trials.length === 0 ? (
+      ) : filteredTrials.length === 0 ? (
         <Typography>No trials found.</Typography>
       ) : view === 'card' ? (
         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 2 }}>
-          {trials.map((trial) => (
+          {filteredTrials.map((trial) => (
             <Card key={trial.id}>
               <CardContent>
                 <Typography variant="h6">{trial.case_number}</Typography>
@@ -198,6 +235,7 @@ export default function MisAsuntosPage() {
                   </>
                 )}
                 <Typography>Corporation: {trial.org_corporation}</Typography>
+                <Typography>Courthouse: {trial.courthouse_name}</Typography>
               </CardContent>
             </Card>
           ))}
@@ -212,11 +250,12 @@ export default function MisAsuntosPage() {
                 <TableCell>Status</TableCell>
                 <TableCell>Priority</TableCell>
                 <TableCell>Risk Factor</TableCell>
+                <TableCell>Courthouse</TableCell>
                 <TableCell>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {trials.map((trial) => (
+              {filteredTrials.map((trial) => (
                 <TableRow key={trial.id}>
                   <TableCell>{trial.case_number}</TableCell>
                   <TableCell>{trial.org_corporation}</TableCell>
@@ -232,6 +271,7 @@ export default function MisAsuntosPage() {
                       trial.risk_factor
                     )}
                   </TableCell>
+                  <TableCell>{trial.courthouse_name}</TableCell>
                   <TableCell>
                     {editingId === trial.id ? (
                       <Button onClick={() => handleSave(trial.id)}>Save</Button>
