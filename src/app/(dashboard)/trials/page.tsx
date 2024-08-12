@@ -282,6 +282,10 @@ export default function HomePage() {
         setSnackbarOpen(false);
     };
 
+    const getStatusColor = (isActive: boolean) => {
+        return isActive ? theme.palette.success.main : theme.palette.error.main;
+    };
+
     return (
         <Box sx={{ 
             display: 'flex', 
@@ -395,7 +399,12 @@ export default function HomePage() {
                         <Typography sx={{ mb: 1 }}><strong>No. Expediente:</strong> {openDetails.case_number}</Typography>
                         <Typography sx={{ mb: 1 }}><strong>Actor:</strong> {trialEntities.plaintiff || openDetails.plaintiff}</Typography>
                         <Typography sx={{ mb: 1 }}><strong>Demandado:</strong> {trialEntities.defendant || openDetails.defendant}</Typography>
-                        <Typography sx={{ mb: 1 }}><strong>Status:</strong> {openDetails.is_active ? 'Activo' : 'Concluido'}</Typography>
+                        <Typography sx={{ mb: 1 }}>
+                            <strong>Status:</strong>{' '}
+                            <span style={{ color: getStatusColor(openDetails.is_active) }}>
+                                {openDetails.is_active ? 'Activo' : 'Concluido'}
+                            </span>
+                        </Typography>
                     </Box>
 
                     <Typography variant="h6" sx={{ mt: 4, mb: 3 }}>Publicaciones Recientes</Typography>
@@ -454,7 +463,7 @@ export default function HomePage() {
                 open={snackbarOpen}
                 autoHideDuration={6000}
                 onClose={handleSnackbarClose}
-                anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+                anchorOrigin={{ vertical: 'center', horizontal: 'center' }}
                 sx={{
                     position: 'fixed',
                     left: '50%',

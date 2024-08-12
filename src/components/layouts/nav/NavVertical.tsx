@@ -54,9 +54,11 @@ export function NavVertical({ openNav, onCloseNav }: Props) {
                     <NavSection data={[{
                         subheader: 'General',
                         items: [
-                            { title: 'Trials', path: '/trials' },
-                            { title: 'Mis Asuntos', path: '/mis_asuntos' },
-                            {title: 'User settings', path: '/user_settings'}
+                            { title: 'Dashboard 🏠', path: '/home' },
+                            { title: 'Encuentra un Juicio 🕵🏻‍♂️', path: '/trials' },
+                            { title: 'Mis Asuntos 📑', path: '/mis_asuntos' },
+                            {title: 'Settings ⚙️', path: '/user_settings'}
+
                         ],
                     }]} />
                     <Box sx={{ flexGrow: 1 }} />
