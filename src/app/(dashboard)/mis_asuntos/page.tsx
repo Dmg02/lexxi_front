@@ -41,61 +41,20 @@ export default function MisAsuntosPage() {
     setLoading(true)
     const supabase = createSupabaseClientSide()
     
-    // First, get the user's auth data
+    // Get the user's auth data
     const { data: userData, error: userError } = await supabase.auth.getUser()
     if (userError) {
       console.error('Error fetching user:', userError)
       setLoading(false)
       return
     }
-    console.log('User data:', userData)
-  
+
     if (!userData.user) {
       console.error('No user found. User might not be authenticated.')
       setLoading(false)
       return
     }
-  
-    // Then, get the user's profile
-    const { data: profileData, error: profileError } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq('user_id', userData.user.id)
-      .single()
-  
-    if (profileError) {
-      console.error('Error fetching profile:', profileError)
-      setLoading(false)
-      return
-    }
-    console.log('Profile data:', profileData)
-  
-    if (!profileData) {
-      console.error('No profile found for this user.')
-      setLoading(false)
-      return
-    }
-  
-    // Now, get the user's team using the profile ID
-    const { data: teamData, error: teamError } = await supabase
-      .from("team_members")
-      .select("team_id")
-      .eq('profile_id', profileData.id)
-      .single()
-  
-    if (teamError) {
-      console.error('Error fetching team:', teamError)
-      setLoading(false)
-      return
-    }
-    console.log('Team data:', teamData)
-  
-    if (!teamData) {
-      console.error('No team found for this user.')
-      setLoading(false)
-      return
-    }
-  
+
     // Fetch trials with courthouse information
     const { data: orgTrialsData, error: orgTrialsError } = await supabase
       .from("org_trials")
@@ -107,9 +66,10 @@ export default function MisAsuntosPage() {
             id,
             name
           )
-        )
+        ),
+        teams!inner (id)
       `)
-      .eq('team_id', teamData.team_id)
+      .eq('teams.user_id', userData.user.id)
 
     if (orgTrialsError) {
       console.error('Error fetching trials:', orgTrialsError)
@@ -212,7 +172,7 @@ export default function MisAsuntosPage() {
       ) : filteredTrials.length === 0 ? (
         <Typography>No trials found.</Typography>
       ) : view === 'card' ? (
-        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 2 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: 4 }}>
           {filteredTrials.map((trial) => (
             <Card key={trial.id}>
               <CardContent>

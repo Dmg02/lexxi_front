@@ -18,23 +18,23 @@ declare module '@mui/material/styles/createPalette' {
 
 const GREY = {
     0: '#FFFFFF',
-    100: '#F9FAFB',
+    100: '#F7F7F5', // Notion-inspired grey
     200: '#F4F6F8',
     300: '#DFE3E8',
     400: '#C4CDD5',
-    500: '#1f1f1f',
-    600: '#637381',
+    500: '#5D5B57', // Text menu color
+    600: '#373530', // Main text color
     700: '#454F5B',
     800: '#212B36',
     900: '#161C24',
 };
 
 const PRIMARY = {
-    lighter: '#CCF4FE',
-    light: '#68CDF9',
-    main: '#078DEE',
-    dark: '#171717',
-    darker: '#012972',
+    lighter: '#F0F0F0',
+    light: '#E0E0E0',
+    main: '#0070F3', // A blue color similar to Vercel/Next.js
+    dark: '#0050A0',
+    darker: '#003070',
     contrastText: '#FFFFFF',
 };
 
@@ -102,6 +102,11 @@ const COMMON = {
         hoverOpacity: 0.08,
         disabledOpacity: 0.48,
     },
+    textColors: {
+        primary: GREY[600],
+        secondary: GREY[500],
+        disabled: GREY[400],
+    },
 };
 
 export default function palette(themeMode: 'light' | 'dark') {
@@ -112,14 +117,14 @@ export const lightPalette = {
     ...COMMON,
     mode: 'light',
     text: {
-        primary: GREY[800],
-        secondary: GREY[600],
-        disabled: GREY[500],
+        primary: GREY[600], // Main text color
+        secondary: GREY[500], // Text menu color
+        disabled: GREY[400],    
     },
     background: {
         paper: '#FFFFFF',
         default: '#FFFFFF',
-        neutral: GREY[200]
+        neutral: GREY[100] // Notion-inspired grey
     },
     action: {
         ...COMMON.action,
@@ -132,16 +137,16 @@ export const darkPalette = {
     mode: 'dark',
     text: {
         primary: '#FFFFFF',
-        secondary: GREY[500],
-        disabled: GREY[600],
+        secondary: GREY[400],
+        disabled: GREY[500],
     },
     background: {
-        paper: PRIMARY.dark,
-        default: PRIMARY.dark,
-        neutral: alpha(GREY[500], 0.16),
+        paper: '#1F1F1F', // Dark theme background
+        default: '#1F1F1F',
+        neutral: '#2F2F2F',
     },
     action: {
         ...COMMON.action,
-        active: GREY[500],
+        active: GREY[400],
     },
 } as const;

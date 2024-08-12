@@ -1,15 +1,19 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { useTheme } from '@mui/material/styles'
 import Box from '@mui/material/Box'
-import { Drawer, IconButton, Stack, TextField, Typography, Autocomplete, useMediaQuery, Theme, Grid, Pagination, Button } from '@mui/material'
+import { Drawer, IconButton, Stack, TextField, Typography, Autocomplete, useMediaQuery, Theme, Grid, Pagination, Button, Snackbar, Alert } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close';
-import DeleteIcon from '@mui/icons-material/Delete';
 import { createSupabaseClientSide } from '@/lib/supabase/supabase-client-side';
 import { CardTrial } from '@/components/card';
 import { format } from 'date-fns'; 
 import { useAuth } from '@/context/useAuth';
+import { useCustomColors } from '@/hooks/customColors';
 
 export default function HomePage() {
+    const theme = useTheme()
+    const { getPrimaryWithAlpha, getBackgroundWithAlpha } = useCustomColors()
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
     const [search, setSearch] = useState('');
     const [data, setData] = useState<any[]>([]);
     const [openDetails, setOpenDetails] = useState<any>(null);
@@ -20,10 +24,16 @@ export default function HomePage() {
     const [publications, setPublications] = useState<any[]>([]);
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
-    const itemsPerPage = 10;
-    const isMobile = useMediaQuery((theme: Theme) => theme.breakpoints.down('sm'));
+    const itemsPerPage = 8;
     const [subscriptionStatus, setSubscriptionStatus] = useState<'subscribed' | 'not_subscribed' | 'loading'>('not_subscribed');
     const { user } = useAuth(); // This hook provides the current user's information
+    const [publicationsPage, setPublicationsPage] = useState(1);
+    const [totalPublicationsPages, setTotalPublicationsPages] = useState(1);
+    const publicationsPerPage = 3;
+    const [trialEntities, setTrialEntities] = useState<any>({ plaintiff: '', defendant: '' });
+    const [snackbarOpen, setSnackbarOpen] = useState(false);
+    const [snackbarMessage, setSnackbarMessage] = useState('');
+    const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
 
     useEffect(() => {
         const fetchStates = async () => {
@@ -79,7 +89,7 @@ export default function HomePage() {
             const supabase = createSupabaseClientSide();
             const { data, count, error } = await supabase
                 .from("shared_trials")
-                .select("*", { count: 'exact' })
+                .select("*, is_active", { count: 'exact' })
                 .eq('courthouse_id', selectedCourthouse.id)
                 .ilike('case_number', `%${search}%`)
                 .range((page - 1) * itemsPerPage, page * itemsPerPage - 1);
@@ -101,21 +111,32 @@ export default function HomePage() {
 
     const handleOpenDetails = async (trial: any) => {
         setOpenDetails(trial);
-        
-        // Fetch publications for the selected trial
+        setSubscriptionStatus('loading');
+        setPublicationsPage(1); // Reset to first page when opening details
+        await fetchPublications(trial.id, 1);
+        await fetchTrialEntities(trial.id);
+    };
+    
+    // Create a new function to fetch publications
+    const fetchPublications = async (trialId: number, page: number) => {
         const supabase = createSupabaseClientSide();
-        const { data, error } = await supabase
+        const { data, count, error } = await supabase
             .from("publications")
-            .select("*")
-            .eq('shared_trial_id', trial.id)
-            .order('created_at', { ascending: false }) // Sort by creation date, newest first
-            .limit(5); // Limit to the 5 most recent publications, adjust as needed
-
+            .select("*", { count: 'exact' })
+            .eq('shared_trial_id', trialId)
+            .order('created_at', { ascending: false })
+            .range((page - 1) * publicationsPerPage, page * publicationsPerPage - 1);
+    
         if (error) {
             console.error('Error fetching publications:', error);
         } else {
             setPublications(data || []);
+            setTotalPublicationsPages(Math.ceil((count || 0) / publicationsPerPage));
         }
+    };
+    const handlePublicationPageChange = (event: React.ChangeEvent<unknown>, value: number) => {
+        setPublicationsPage(value);
+        fetchPublications(openDetails.id, value);
     };
 
     const handleSubscribe = async (trial: any) => {
@@ -128,31 +149,26 @@ export default function HomePage() {
         const supabase = createSupabaseClientSide();
     
         try {
-            // Step 1: Get the profile id
-            const { data: profile, error: profileError } = await supabase
-                .from('profiles')
-                .select('id')
+            // Step 1: Get the team info (including organization_id) directly from the teams table
+            const { data: teamInfo, error: teamInfoError } = await supabase
+                .from('teams')
+                .select('id, organization_id')
                 .eq('user_id', user.id)
                 .single();
     
-            if (profileError) throw profileError;
+            if (teamInfoError) throw teamInfoError;
     
-            // Step 2: Get the team member id and team info (including organization_id)
-            const { data: teamMember, error: teamMemberError } = await supabase
-                .from('team_members')
-                .select('id, team_id, teams(organization_id)')
-                .eq('profile_id', profile.id)
-                .single();
+            if (!teamInfo) {
+                throw new Error('User is not associated with any team');
+            }
     
-            if (teamMemberError) throw teamMemberError;
+            const { id: teamId, organization_id: organizationId } = teamInfo;
     
-            const organizationId = teamMember.teams.organization_id;
-    
-            // Step 3: Check if the subscription already exists
+            // Step 2: Check if the subscription already exists
             const { data: existingSubscription, error: subscriptionError } = await supabase
                 .from('org_trials')
                 .select('*')
-                .eq('team_id', teamMember.team_id)
+                .eq('team_id', teamId)
                 .eq('shared_trial_id', trial.id)
                 .single();
     
@@ -165,24 +181,105 @@ export default function HomePage() {
                 return;
             }
     
-            // Step 4: Create new subscription
+            // Step 3: Create new subscription
             const { error: insertError } = await supabase
                 .from('org_trials')
                 .insert({
-                    team_id: teamMember.team_id,
+                    team_id: teamId,
                     shared_trial_id: trial.id,
-                    created_by: user.id,  // Changed from profile.id to user.id
+                    created_by: user.id,
                     organization_id: organizationId
                 });
     
             if (insertError) throw insertError;
     
             setSubscriptionStatus('subscribed');
+            setSnackbarMessage('Te has suscrito exitosamente al juicio');
+            setSnackbarSeverity('success');
+            setSnackbarOpen(true);
             console.log('Successfully subscribed to the trial');
         } catch (error) {
             console.error('Error in subscription process:', error);
             setSubscriptionStatus('not_subscribed');
+            setSnackbarMessage('Error al suscribirse al juicio');
+            setSnackbarSeverity('error');
+            setSnackbarOpen(true);
         }
+    };
+
+    // Add this useEffect to reset and check subscription status when the drawer opens
+    useEffect(() => {
+        if (openDetails) {
+            setSubscriptionStatus('loading'); // Reset status when a new trial is selected
+            checkSubscriptionStatus(openDetails);
+        } else {
+            setSubscriptionStatus('not_subscribed'); // Reset when drawer closes
+        }
+    }, [openDetails]);
+
+    const checkSubscriptionStatus = async (trial: any) => {
+        if (!user || !trial) return;
+
+        const supabase = createSupabaseClientSide();
+        
+        try {
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('id')
+                .eq('user_id', user.id)
+                .single();
+
+            const { data: teamMember } = await supabase
+                .from('team_members')
+                .select('team_id')
+                .eq('profile_id', profile.id)
+                .single();
+
+            const { data: existingSubscription } = await supabase
+                .from('org_trials')
+                .select('*')
+                .eq('team_id', teamMember.team_id)
+                .eq('shared_trial_id', trial.id)
+                .single();
+
+            setSubscriptionStatus(existingSubscription ? 'subscribed' : 'not_subscribed');
+        } catch (error) {
+            console.error('Error checking subscription status:', error);
+            setSubscriptionStatus('not_subscribed');
+        }
+    };
+
+    const fetchTrialEntities = async (trialId: number) => {
+        const supabase = createSupabaseClientSide();
+        const { data, error } = await supabase
+            .from("trial_entities")
+            .select(`
+                id,
+                trial_role_id,
+                individual:individual_id(name),
+                union:union_id(name),
+                company:company_id(name)
+            `)
+            .eq('shared_trial_id', trialId);
+
+        if (error) {
+            console.error('Error fetching trial entities:', error);
+            return;
+        }
+
+        const entities = {
+            plaintiff: data.filter(e => e.trial_role_id === 1).map(e => e.individual?.name || e.union?.name || e.company?.name).join(', '),
+            defendant: data.filter(e => e.trial_role_id === 4).map(e => e.individual?.name || e.union?.name || e.company?.name).join(', ')
+        };
+
+        setTrialEntities(entities);
+    };
+
+    const handleSnackbarClose = (event?: React.SyntheticEvent | Event, reason?: string) => {
+        if (reason === 'clickaway') {
+            return;
+        }
+        setSnackbarOpen(false);
     };
 
     return (
@@ -191,12 +288,16 @@ export default function HomePage() {
             flexDirection: 'column', 
             alignItems: 'center', 
             justifyContent: 'center',
-            p: 2,
+            p: 4,
             width: '100%',
             maxWidth: '100vw',
-            boxSizing: 'border-box'
+            boxSizing: 'border-box',
+            backgroundColor: theme.palette.background.default,
+            color: theme.palette.text.primary
         }}>
-            <Typography variant={isMobile ? "h4" : "h3"} sx={{ mb: 2, textAlign: 'center' }}>{'Busca un Asunto'}</Typography>
+            <Typography variant={isMobile ? "h4" : "h3"} sx={{ mb: 2, textAlign: 'center', color: theme.palette.primary.main }}>
+                {'Busca un Asunto'}
+            </Typography>
             <Box sx={{ width: '100%', maxWidth: 700 }}>
                 <Autocomplete
                     options={states}
@@ -231,9 +332,9 @@ export default function HomePage() {
                 />
             </Box>
             
-            <Grid container spacing={2} sx={{ mt: 2, mb: 2 }}>
+            <Grid container spacing={2} sx={{ mt: 8, mb: 2 }}>
                 {data.map((r: any) => (
-                    <Grid item xs={12} sm={6} md={4} lg={3} key={r.id}>
+                    <Grid item xs={4} sm={6} md={4} lg={3} key={r.id}>
                         <CardTrial 
                             record={r} 
                             setOpenDetail={() => handleOpenDetails(r)} 
@@ -247,7 +348,7 @@ export default function HomePage() {
                 page={page} 
                 onChange={handlePageChange} 
                 color="primary" 
-                sx={{ mt: 2, mb: 2 }}
+                sx={{ mt: 4 , mb: 2 }}
             />
 
             {openDetails && (
@@ -257,14 +358,15 @@ export default function HomePage() {
                     onClose={() => {
                         setOpenDetails(null);
                         setPublications([]);
+                        setSubscriptionStatus('not_subscribed');
                     }}
                     PaperProps={{
                         sx: {
                             zIndex: 0,
                             width: isMobile ? '100%' : 500,
                             height: isMobile ? '90%' : '100%',
-                            bgcolor: '#f7f7f5',
-                            borderRight: 'solid 1px #D6DBE0',
+                            bgcolor: theme.palette.background.paper,
+                            borderRight: `solid 1px ${theme.palette.divider}`,
                             p: 3,
                             boxSizing: 'border-box',
                             overflowY: 'auto'
@@ -278,6 +380,7 @@ export default function HomePage() {
                             onClick={() => {
                                 setOpenDetails(null);
                                 setPublications([]);
+                                setSubscriptionStatus('not_subscribed');
                             }}
                             sx={{ 
                                 position: 'absolute',
@@ -290,30 +393,38 @@ export default function HomePage() {
                     </Box>
                     <Box sx={{ mb: 3 }}>
                         <Typography sx={{ mb: 1 }}><strong>No. Expediente:</strong> {openDetails.case_number}</Typography>
-                        <Typography sx={{ mb: 1 }}><strong>Actor:</strong> {openDetails.plaintiff}</Typography>
-                        <Typography sx={{ mb: 1 }}><strong>Demandado:</strong> {openDetails.defendant}</Typography>
+                        <Typography sx={{ mb: 1 }}><strong>Actor:</strong> {trialEntities.plaintiff || openDetails.plaintiff}</Typography>
+                        <Typography sx={{ mb: 1 }}><strong>Demandado:</strong> {trialEntities.defendant || openDetails.defendant}</Typography>
+                        <Typography sx={{ mb: 1 }}><strong>Status:</strong> {openDetails.is_active ? 'Activo' : 'Concluido'}</Typography>
                     </Box>
 
                     <Typography variant="h6" sx={{ mt: 4, mb: 3 }}>Publicaciones Recientes</Typography>
                     {publications.length > 0 ? (
-                        publications.map((pub) => (
-                            <Box key={pub.id} sx={{ mb: 3, p: 2, border: '1px solid #e0e0e0', borderRadius: 2, position: 'relative' }}>
-                                <IconButton
-                                    onClick={() => handleClosePublication(pub.id)}
-                                    sx={{
-                                        position: 'absolute',
-                                        right: 8,
-                                        top: 8,
-                                    }}
-                                    size="small"
-                                >
-                                </IconButton>
-                                <Typography sx={{ mb: 1 }}><strong>Fecha de Publicación:</strong> {format(new Date(pub.publication_date), 'dd/MM/yyyy')}</Typography>
-                                <Typography sx={{ mb: 1 }}><strong>Fecha de Acuerdo:</strong> {format(new Date(pub.agreement_date), 'dd/MM/yyyy')}</Typography>
-                                <Typography sx={{ mb: 1 }}><strong>Síntesis:</strong> {pub.summary}</Typography>
-                                <Typography sx={{ mb: 1 }}><strong>Status:</strong> {pub.status}</Typography>
-                            </Box>
-                        ))
+                        <>
+                            {publications.map((pub) => (
+                                <Box key={pub.id} sx={{ mb: 3, p: 2, border: `1px solid ${theme.palette.divider}`, borderRadius: 2, position: 'relative' }}>
+                                    <IconButton
+                                        sx={{
+                                            position: 'absolute',
+                                            right: 8,
+                                            top: 8,
+                                        }}
+                                        size="small"
+                                    >
+                                    </IconButton>
+                                    <Typography sx={{ mb: 1 }}><strong>Fecha de Publicación:</strong> {format(new Date(pub.publication_date), 'dd/MM/yyyy')}</Typography>
+                                    <Typography sx={{ mb: 1 }}><strong>Fecha de Acuerdo:</strong> {format(new Date(pub.agreement_date), 'dd/MM/yyyy')}</Typography>
+                                    <Typography sx={{ mb: 1 }}><strong>Síntesis:</strong> {pub.summary}</Typography>
+                                </Box>
+                            ))}
+                            <Pagination 
+                                count={totalPublicationsPages} 
+                                page={publicationsPage} 
+                                onChange={handlePublicationPageChange} 
+                                color="primary" 
+                                sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}
+                            />
+                        </>
                     ) : (
                         <Typography>No hay publicaciones recientes para este juicio.</Typography>
                     )}
@@ -322,12 +433,47 @@ export default function HomePage() {
                         color="primary"
                         onClick={() => handleSubscribe(openDetails)}
                         disabled={subscriptionStatus === 'loading' || subscriptionStatus === 'subscribed'}
-                        sx={{ mt: 2 }}
+                        sx={{ 
+                            mt: 2,
+                            backgroundColor: theme.palette.primary.main,
+                            '&:hover': {
+                                backgroundColor: getPrimaryWithAlpha(0.8),
+                            },
+                            '&:disabled': {
+                                backgroundColor: theme.palette.action.disabledBackground,
+                                color: theme.palette.action.disabled,
+                            }
+                        }}
                     >   
                         {subscriptionStatus === 'subscribed' ? 'Suscrito' : 'Suscribirme'}
                     </Button>
                 </Drawer>
             )}
+
+            <Snackbar
+                open={snackbarOpen}
+                autoHideDuration={6000}
+                onClose={handleSnackbarClose}
+                anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+                sx={{
+                    position: 'fixed',
+                    left: '50%',
+                    top: '50%',
+                    transform: 'translate(-50%, -50%)',
+                }}
+            >
+                <Alert 
+                    onClose={handleSnackbarClose} 
+                    severity={snackbarSeverity} 
+                    sx={{ 
+                        width: '100%',
+                        boxShadow: 24,
+                        padding: '16px 24px',
+                    }}
+                >
+                    {snackbarMessage}
+                </Alert>
+            </Snackbar>
         </Box>
     )
 }
